@@ -1,0 +1,31 @@
+quran-better-for-me/
+├─ index.html
+├─ assets/
+│  ├─ app.js
+│  ├─ styles.css
+│  └─ logo.svg            (optional)
+├─ data/
+│  ├─ meta/
+│  │  ├─ manifest.json
+│  │  ├─ shard_map_quran.json
+│  │  ├─ shard_map_pairs.json
+│  │  └─ shard_map_hadith.json
+│  ├─ quran_text/         (114 shards, 1 per surah)
+│  │  ├─ quran_s001.json
+│  │  └─ ...
+│  ├─ quran_pairs/        (114 shards, 1 per surah)
+│  │  ├─ pairs_s001.json
+│  │  └─ ...
+│  ├─ hadith_text/        (~51 shards, 1000 per shard)
+│  │  ├─ hadith_00001_01000.json
+│  │  └─ ...
+│  ├─ search_index/
+│  │  ├─ english_token_to_ayahids.json
+│  │  ├─ english_trigram_to_tokens.json
+│  │  ├─ arabic_token_to_ayahids.json
+│  │  └─ stopwords_ar.txt
+├─ scripts/
+│  ├─ 01_build_pairs.py
+│  └─ requirements.txt
+└─ README.md
+|__ raw
