@@ -1,11 +1,10 @@
 # %% [0] Debug + environment sanity
-import os, sys, re, json, math
+import os, sys, re, json
 from collections import defaultdict, Counter
 
 print("RUNNING:", os.path.abspath(__file__))
 print("PYTHON:", sys.version)
 
-# Strong recommendation (Torch + sentence-transformers often break on Python 3.14)
 if sys.version_info >= (3, 13):
     print("WARNING: You are on Python >= 3.13. If Torch/sentence-transformers fails, use Python 3.10/3.11.")
 
@@ -44,7 +43,7 @@ TOPK_HADITH_LEXICAL  = 50
 # Embeddings
 EMBED_MODEL_NAME  = "intfloat/multilingual-e5-base"
 EMBED_BATCH_SIZE  = 256
-VEC_PREVIEW_DIMS  = 8
+VEC_PREVIEW_DIMS  = 8  # stored in Quran shards (UI may ignore)
 
 # Save size control
 MAX_SHARED_TOKENS_STORED = 8
@@ -74,7 +73,7 @@ def read_csv_robust(path):
     except Exception as e:
         raise RuntimeError(f"Failed to read CSV: {path}\nLast errors: {last_err}\n{e}")
 
-# %% [4] Arabic normalization + tokenization (recommended normalization)
+# %% [4] Arabic normalization + tokenization (recommended)
 AR_DIACRITICS_RE = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]")
 AR_TATWEEL_RE = re.compile(r"\u0640")
 AR_PUNCT_RE = re.compile(r"[^\u0600-\u06FF0-9\s]")
@@ -114,7 +113,7 @@ def tokenize_ar(text: str, stopwords: set) -> list:
         out.append(t)
     return out
 
-# %% [5] English normalization/tokenization (for GUI search only)
+# %% [5] English normalization/tokenization (GUI search only)
 EN_PUNCT_RE = re.compile(r"[^a-z0-9\s]")
 EN_MULTI_SPACE_RE = re.compile(r"\s+")
 
@@ -172,7 +171,7 @@ if not os.path.exists(STOPWORDS_AR_TXT):
 stop_ar = load_stopwords_ar(STOPWORDS_AR_TXT)
 stop_en = load_stopwords_en_default()
 
-# %% [7] Load datasets + enforce join rule + robust Hadith handling (NO CSV serial trust)
+# %% [7] Load datasets + enforce join rule + Hadith Arabic+English capture
 q_ar = read_csv_robust(QURAN_AR_PATH)
 q_en = read_csv_robust(QURAN_EN_PATH)
 h_df = read_csv_robust(HADITH_PATH)
@@ -191,7 +190,7 @@ q_en["surah"] = pd.to_numeric(q_en["surah"], errors="raise").astype(int)
 q_en["ayat"]  = pd.to_numeric(q_en["ayat"], errors="raise").astype(int)
 q_en["ayah_id"] = q_en["surah"].astype(str) + ":" + q_en["ayat"].astype(str)
 
-# Validate join rule (you confirmed Surah+Ayat == surah+ayah)
+# Validate join rule (Surah+Ayat == surah+ayah)
 set_ar = set(q_ar["ayah_id"].tolist())
 set_en = set(q_en["ayah_id"].tolist())
 if set_ar != set_en:
@@ -205,56 +204,37 @@ if set_ar != set_en:
 
 q = q_ar.merge(q_en[["ayah_id","english_text"]], on="ayah_id", how="left")
 
-# -------- Hadith: detect Arabic text column by content (most robust) --------
-def arabic_ratio(s: str) -> float:
-    s = safe_str(s)
-    if not s:
-        return 0.0
-    ar = sum(1 for ch in s if "\u0600" <= ch <= "\u06FF")
-    return ar / max(1, len(s))
+# Hadith column detection (based on your confirmed schema)
+# Your run showed: ['serial','book','reference','narrated by','english text','arabic text']
+if "arabic text" not in h_df.columns:
+    raise ValueError(f"Hadith arabic text column not found. Columns: {list(h_df.columns)}")
+if "english text" not in h_df.columns:
+    print("WARNING: Hadith English column not found. Hadith translation will be blank in UI.")
 
-def detect_arabic_text_column(df: pd.DataFrame) -> str:
-    # candidate object columns only
-    candidates = [c for c in df.columns if df[c].dtype == "object"]
-    if not candidates:
-        raise ValueError("No text columns found in hadith file.")
-    best_col = None
-    best_score = -1.0
-    sample_n = min(400, len(df))
-    sample = df.sample(sample_n, random_state=42) if len(df) > sample_n else df
-    for c in candidates:
-        vals = sample[c].dropna().astype(str).head(80).tolist()
-        if not vals:
-            continue
-        score = float(np.mean([arabic_ratio(v) for v in vals]))
-        if score > best_score:
-            best_score = score
-            best_col = c
-    if best_col is None:
-        raise ValueError("Could not detect Arabic text column in hadith file.")
-    # Require at least some Arabic content
-    if best_score < 0.10:
-        raise ValueError(f"Detected Arabic column '{best_col}' but Arabic score too low ({best_score:.3f}).")
-    return best_col
+ar_col = "arabic text"
+en_col = "english text" if "english text" in h_df.columns else None
 
-ar_col = detect_arabic_text_column(h_df)
 print("Hadith columns:", list(h_df.columns))
-print("Detected hadith Arabic text column:", ar_col)
+print("Using hadith Arabic column:", ar_col)
+print("Using hadith English column:", en_col if en_col else "(missing)")
 
-# Optional meta cols
-book_col = "book" if "book" in h_df.columns else None
-ref_col  = "reference" if "reference" in h_df.columns else None
-
-h_df["book"] = h_df[book_col].astype(str) if book_col else "Unknown"
-h_df["reference"] = h_df[ref_col].astype(str) if ref_col else ""
-
-# CRITICAL: never trust any CSV serial column; create safe numeric serial
+# Safe serial: ALWAYS generate from row index (prevents your earlier crash forever)
 h_df["serial"] = np.arange(1, len(h_df) + 1, dtype=np.int32)
+
+# Optional metadata fields
+h_df["book"] = h_df["book"].astype(str) if "book" in h_df.columns else "Unknown"
+h_df["reference"] = h_df["reference"].astype(str) if "reference" in h_df.columns else ""
+
+# Store english_text safely
+if en_col:
+    h_df["english_text"] = h_df[en_col].astype(str)
+else:
+    h_df["english_text"] = ""
 
 # Combined hadith id you requested
 h_df["hadith_id"] = h_df["book"].astype(str) + "|" + h_df["reference"].astype(str) + "|" + h_df["serial"].astype(str)
 
-h_keep = h_df[["hadith_id","serial","book","reference",ar_col]].copy()
+h_keep = h_df[["hadith_id","serial","book","reference",ar_col,"english_text"]].copy()
 h_keep.rename(columns={ar_col:"arabic_text"}, inplace=True)
 
 print("Loaded Quran:", len(q), "| Hadith:", len(h_keep))
@@ -316,8 +296,6 @@ h_emb = embed_passages(h_keep["arabic_norm"].tolist())
 print("Embeddings shapes:", q_emb.shape, h_emb.shape)
 
 # %% [11] Semantic nearest neighbors (NO FAISS): cosine distance -> cosine similarity
-# q_emb and h_emb are L2-normalized -> cosine distance is correct.
-
 q_ids = q["ayah_id"].tolist()
 h_ids = h_keep["hadith_id"].tolist()
 
@@ -371,7 +349,7 @@ for idx, tset in enumerate(h_keep["tok_set"]):
 q_tok_lens = q["tok_len"].to_numpy()
 h_tok_lens = h_keep["tok_len"].to_numpy()
 
-def topk_jaccard(i: int, postings: dict, other_sets, other_lens: np.ndarray, other_ids: list, topk: int, is_quran: bool):
+def topk_jaccard(i: int, postings: dict, other_lens: np.ndarray, other_ids: list, topk: int, is_quran: bool):
     base_set = q.at[i, "tok_set"]
     base_len = int(q_tok_lens[i])
     if base_len == 0:
@@ -415,11 +393,11 @@ lex_pairs_hadith = {}
 
 for i, ayah_id in enumerate(q_ids):
     lex_pairs_quran[ayah_id] = topk_jaccard(
-        i=i, postings=post_q, other_sets=None, other_lens=q_tok_lens,
+        i=i, postings=post_q, other_lens=q_tok_lens,
         other_ids=q_ids, topk=TOPK_QURAN_LEXICAL, is_quran=True
     )
     lex_pairs_hadith[ayah_id] = topk_jaccard(
-        i=i, postings=post_h, other_sets=None, other_lens=h_tok_lens,
+        i=i, postings=post_h, other_lens=h_tok_lens,
         other_ids=h_ids, topk=TOPK_HADITH_LEXICAL, is_quran=False
     )
 
@@ -449,7 +427,7 @@ for surah in sorted(q["surah"].unique().tolist()):
 write_json(os.path.join(OUT_META_DIR, "shard_map_quran.json"), shard_map_quran)
 print("Wrote Quran text shards:", len(shard_map_quran))
 
-# %% [14] Hadith text shards (by serial ranges)
+# %% [14] Hadith text shards (by serial ranges) — NOW INCLUDES ENGLISH
 h_sorted = h_keep.sort_values("serial").reset_index(drop=True)
 
 shard_map_hadith = []
@@ -469,7 +447,8 @@ for start in range(0, n, HADITH_SHARD_SIZE):
             "serial": int(row["serial"]),
             "book": safe_str(row["book"]),
             "reference": safe_str(row["reference"]),
-            "arabic": safe_str(row["arabic_text"])
+            "arabic": safe_str(row["arabic_text"]),
+            "english": safe_str(row["english_text"])  # ✅ NEW
         })
 
     write_json(os.path.join(OUT_HADITH_TEXT_DIR, fn), out)
