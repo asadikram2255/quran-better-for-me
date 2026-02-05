@@ -10,17 +10,15 @@
   --danger:#ff6b6b;
   --shadow:0 12px 40px rgba(0,0,0,.35);
 
-  /* tweak these if you want more/less sticky space */
   --stickyTopOffset: 12px;
 }
 
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
-body{overflow:hidden;} /* keeps layout stable; we scroll inner panes instead */
+body{overflow:hidden;} /* stable layout; inner panes scroll */
 
 .app{
-  /* WIDENED */
-  max-width: 1800px;
+  max-width: 1800px; /* WIDENED */
   margin:0 auto;
   padding:16px 14px 20px;
   height:100vh;
@@ -32,6 +30,7 @@ body{overflow:hidden;} /* keeps layout stable; we scroll inner panes instead */
 .header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
 .h1{font-size:28px;font-weight:800;letter-spacing:.2px}
 .sub{color:var(--muted);margin-top:6px}
+
 .badge{padding:8px 10px;border-radius:999px;font-size:12px;border:1px solid var(--border);background:rgba(255,255,255,.03)}
 .badge.ok{color:var(--accent)}
 .badge.warn{color:var(--warn)}
@@ -39,12 +38,14 @@ body{overflow:hidden;} /* keeps layout stable; we scroll inner panes instead */
 
 .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:18px;padding:14px;box-shadow:var(--shadow)}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
 label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 input{
   width:100%;padding:12px 12px;border-radius:14px;border:1px solid var(--border);
   background:rgba(255,255,255,.03);color:var(--text);outline:none
 }
 input:focus{border-color:rgba(79,209,197,.5)}
+
 .actions{display:flex;align-items:center;gap:10px;margin-top:10px}
 .btn{border:1px solid rgba(79,209,197,.35);background:rgba(79,209,197,.12);color:var(--text);padding:10px 14px;border-radius:14px;cursor:pointer}
 .btn:hover{background:rgba(79,209,197,.18)}
@@ -59,13 +60,12 @@ input:focus{border-color:rgba(79,209,197,.5)}
 
 .results{
   flex:1;
-  min-height:0; /* important for nested scroll areas */
+  min-height:0;
 }
 
 .layout{
   display:grid;
-  /* WIDENED columns */
-  grid-template-columns: 1.15fr 1.85fr;
+  grid-template-columns: 1.15fr 1.85fr; /* WIDENED */
   gap:14px;
   height:100%;
 }
@@ -101,11 +101,17 @@ input:focus{border-color:rgba(79,209,197,.5)}
   flex:1;
   min-height:0;
 }
+
 .empty{color:var(--muted);padding:18px}
 
 .item{
-  padding:10px 10px;border-radius:14px;border:1px solid transparent;cursor:pointer;
-  display:flex;gap:10px;align-items:flex-start
+  padding:10px 10px;
+  border-radius:14px;
+  border:1px solid transparent;
+  cursor:pointer;
+  display:flex;
+  gap:10px;
+  align-items:flex-start
 }
 .item:hover{background:rgba(255,255,255,.03);border-color:var(--border)}
 .item .id{font-weight:800;color:var(--accent);min-width:74px}
@@ -151,7 +157,7 @@ input:focus{border-color:rgba(79,209,197,.5)}
 .detailScroll{
   flex:1;
   min-height:0;
-  overflow:auto; /* scroll ONLY this area; selected ayah stays visible */
+  overflow:auto; /* ONLY this scrolls => selected ayah stays visible */
   padding-right:6px;
 }
 
@@ -176,7 +182,6 @@ input:focus{border-color:rgba(79,209,197,.5)}
   display:flex;
   flex-direction:column;
   gap:8px;
-  /* Keep lists scrollable INSIDE the detailScroll area */
 }
 
 .pair{
