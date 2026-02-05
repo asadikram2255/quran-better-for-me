@@ -18,7 +18,7 @@
       </div>
     </header>
 
-    <section class="search">
+    <section class="search stickyTop">
       <div class="card">
         <div class="grid3">
           <div>
@@ -47,57 +47,62 @@
 
     <section class="results">
       <div class="layout">
+        <!-- LEFT: Search results -->
         <div class="panel">
-          <div class="panelTitle">Search Results</div>
-          <div id="resultsList" class="list empty">No results yet.</div>
+          <div class="panelTitle stickyHead">Search Results</div>
+          <div id="resultsList" class="list scrollBody empty">No results yet.</div>
         </div>
 
+        <!-- RIGHT: Details -->
         <div class="panel">
-          <div class="panelTitle">Details</div>
+          <div class="panelTitle stickyHead">Details</div>
 
           <div id="detailEmpty" class="empty">Select an ayah to view semantic + lexical pairs.</div>
 
           <div id="detailView" class="detail hidden">
-            <div class="ayahBox">
+            <!-- Sticky selected ayah -->
+            <div class="ayahBox stickyAyah">
               <div class="ayahArabic" id="dArabic" dir="rtl"></div>
               <div class="ayahEnglish" id="dEnglish"></div>
               <div class="metaRow">
                 <div class="chip" id="dAyahId"></div>
-                <div class="chip">vec preview: <span id="dVec"></span></div>
+              </div>
+
+              <div class="tabs">
+                <button class="tab active" data-tab="semantic">Semantic</button>
+                <button class="tab" data-tab="lexical">Lexical</button>
               </div>
             </div>
 
-            <div class="tabs">
-              <button class="tab active" data-tab="semantic">Semantic</button>
-              <button class="tab" data-tab="lexical">Lexical</button>
-            </div>
-
-            <div class="tabBody" id="tabSemantic">
-              <div class="twoCol">
-                <div class="subpanel">
-                  <div class="subTitle">Quran (Top 20)</div>
-                  <div id="semQuran" class="pairsList"></div>
+            <!-- Scrollable results area -->
+            <div class="detailScroll">
+              <div class="tabBody" id="tabSemantic">
+                <div class="twoCol">
+                  <div class="subpanel">
+                    <div class="subTitle">Quran (Top 20)</div>
+                    <div id="semQuran" class="pairsList"></div>
+                  </div>
+                  <div class="subpanel">
+                    <div class="subTitle">Hadith (Top 50)</div>
+                    <div id="semHadith" class="pairsList"></div>
+                  </div>
                 </div>
-                <div class="subpanel">
-                  <div class="subTitle">Hadith (Top 50)</div>
-                  <div id="semHadith" class="pairsList"></div>
+              </div>
+
+              <div class="tabBody hidden" id="tabLexical">
+                <div class="twoCol">
+                  <div class="subpanel">
+                    <div class="subTitle">Quran (Top 20)</div>
+                    <div id="lexQuran" class="pairsList"></div>
+                  </div>
+                  <div class="subpanel">
+                    <div class="subTitle">Hadith (Top 50)</div>
+                    <div id="lexHadith" class="pairsList"></div>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <div class="tabBody hidden" id="tabLexical">
-              <div class="twoCol">
-                <div class="subpanel">
-                  <div class="subTitle">Quran (Top 20)</div>
-                  <div id="lexQuran" class="pairsList"></div>
-                </div>
-                <div class="subpanel">
-                  <div class="subTitle">Hadith (Top 50)</div>
-                  <div id="lexHadith" class="pairsList"></div>
-                </div>
-              </div>
-            </div>
-
+            <!-- /detailScroll -->
           </div>
         </div>
       </div>
@@ -111,4 +116,3 @@
   <script src="assets/app.js"></script>
 </body>
 </html>
-
