@@ -1,4 +1,4 @@
-// Minimal, dependency-free JS
+// Minimal, dependency-free JS (no change to search logic)
 
 const state = {
   manifest: null,
@@ -141,7 +141,7 @@ async function ensureSurahLoaded(surah){
 // Hadith shard map is array [{start,end,file}]
 async function ensureHadithById(hadithId){
   if(state.hadithById.has(hadithId)) return;
-  // hadithId ends with |serial
+
   const parts = hadithId.split("|");
   const serial = parseInt(parts[parts.length-1],10);
   const shard = state.shardMapHadith.find(s => serial >= s.start && serial <= s.end);
@@ -282,7 +282,7 @@ function renderPairList(container, items, kind){
       const h = state.hadithById.get(it.id);
       if(h){
         const ar = h.arabic || "";
-        const en = h.english || ""; // <-- will show if present in hadith shards
+        const en = h.english || ""; // ✅ shows under Arabic when present
         body = `<div dir="rtl">${ar}</div>`;
         if(en) extra = `<div class="small">${en}</div>`;
         else extra = `<div class="small">${h.book || ""} — ${h.reference || ""}</div>`;
@@ -336,7 +336,7 @@ async function openDetail(ayahId){
   const semH = pairs.semantic.hadith_top50 || [];
   const lexH = pairs.lexical.hadith_top50 || [];
 
-  // Quick-load a few hadith first
+  // quick-load some hadith
   const toLoad = [...new Set([...semH.slice(0,12), ...lexH.slice(0,12)].map(x=>x.id))];
   for(const hid of toLoad) await ensureHadithById(hid);
 
@@ -345,7 +345,7 @@ async function openDetail(ayahId){
   renderPairList(els.semHadith, semH, "hadith");
   renderPairList(els.lexHadith, lexH, "hadith");
 
-  // Lazy load rest
+  // lazy load rest
   setTimeout(async ()=>{
     const allH = [...new Set([...semH, ...lexH].map(x=>x.id))];
     for(let i=0;i<allH.length;i++){
