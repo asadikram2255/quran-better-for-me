@@ -36,7 +36,6 @@ const els = {
   dArabic: document.getElementById("dArabic"),
   dEnglish: document.getElementById("dEnglish"),
   dAyahId: document.getElementById("dAyahId"),
-  dVec: document.getElementById("dVec"),
 
   tabSemantic: document.getElementById("tabSemantic"),
   tabLexical: document.getElementById("tabLexical"),
@@ -114,7 +113,7 @@ function levenshtein(a,b){
 function maxAllowedEdits(len){
   if(len <= 4) return 1;
   if(len <= 7) return 2;
-  return 2; // keep conservative for speed
+  return 2;
 }
 
 // ---------- Shard loading ----------
@@ -168,10 +167,9 @@ function unique(arr){
 }
 
 async function searchByArabicKeyword(q){
-  const tok = tokenizeAr(q)[0]; // single keyword behavior
+  const tok = tokenizeAr(q)[0];
   if(!tok) return [];
   const ids = state.arTokenToAyah[tok] || [];
-  // lazy load needed surahs
   const surahs = unique(ids.map(surahFromAyahId));
   for(const s of surahs) await ensureSurahLoaded(s);
   return ids.map(id => state.quranById.get(id)).filter(Boolean);
@@ -181,8 +179,7 @@ async function searchByEnglishFuzzy(q){
   const toks = tokenizeEn(q);
   if(!toks.length) return [];
 
-  // For each query token, find candidate vocab tokens via trigram overlap
-  const matchedAyahScores = new Map(); // ayah_id -> score
+  const matchedAyahScores = new Map();
   for(const qt of toks){
     const grams = trigrams(qt);
     const candidates = new Set();
@@ -191,17 +188,14 @@ async function searchByEnglishFuzzy(q){
       for(const t of c) candidates.add(t);
     }
 
-    // Compute edit distance only over candidates
     const maxEd = maxAllowedEdits(qt.length);
     const good = [];
     for(const t of candidates){
-      // quick length filter
       if(Math.abs(t.length - qt.length) > maxEd) continue;
       const d = levenshtein(qt, t);
       if(d <= maxEd) good.push({t, d});
     }
 
-    // Use best few matches
     good.sort((a,b)=>a.d-b.d);
     const best = good.slice(0, 10);
 
@@ -209,13 +203,11 @@ async function searchByEnglishFuzzy(q){
       const ids = state.enTokenToAyah[m.t] || [];
       for(const id of ids){
         const prev = matchedAyahScores.get(id) || 0;
-        // closer distance => higher
         matchedAyahScores.set(id, prev + (maxEd - m.d + 1));
       }
     }
   }
 
-  // rank
   const ranked = Array.from(matchedAyahScores.entries())
     .sort((a,b)=>b[1]-a[1])
     .slice(0, 200)
@@ -279,12 +271,25 @@ function renderPairList(container, items, kind){
     div.className = "pair";
 
     let body = "";
+    let extra = "";
+
     if(kind === "quran"){
       const rec = state.quranById.get(it.id);
-      body = rec ? `<div dir="rtl">${rec.arabic}</div><div class="small">${rec.english}</div>` : `<div class="small">Loading…</div>`;
+      body = rec
+        ? `<div dir="rtl">${rec.arabic}</div><div class="small">${rec.english}</div>`
+        : `<div class="small">Loading…</div>`;
     } else {
       const h = state.hadithById.get(it.id);
-      body = h ? `<div dir="rtl">${h.arabic}</div><div class="small">${h.book} — ${h.reference}</div>` : `<div class="small">Loading…</div>`;
+      if(h){
+        const ar = h.arabic || "";
+        const en = h.english || ""; // <-- will show if present in hadith shards
+        body = `<div dir="rtl">${ar}</div>`;
+        if(en) extra = `<div class="small">${en}</div>`;
+        else extra = `<div class="small">${h.book || ""} — ${h.reference || ""}</div>`;
+        body += extra;
+      } else {
+        body = `<div class="small">Loading…</div>`;
+      }
     }
 
     let shared = "";
@@ -311,7 +316,6 @@ async function openDetail(ayahId){
 
   const rec = state.quranById.get(ayahId);
   const pairs = state.pairsByAyah.get(ayahId);
-
   if(!rec || !pairs) return;
 
   els.detailEmpty.classList.add("hidden");
@@ -320,9 +324,7 @@ async function openDetail(ayahId){
   els.dArabic.textContent = rec.arabic;
   els.dEnglish.textContent = rec.english;
   els.dAyahId.textContent = rec.ayah_id;
-  els.dVec.textContent = (rec.vec_preview || []).join(", ");
 
-  // Ensure Quran targets are loaded (by surah)
   const semQ = pairs.semantic.quran_top20 || [];
   const lexQ = pairs.lexical.quran_top20 || [];
 
@@ -331,11 +333,10 @@ async function openDetail(ayahId){
   for(const it of lexQ) neededSurahs.add(surahFromAyahId(it.id));
   for(const s of neededSurahs) await ensureSurahLoaded(s);
 
-  // Ensure hadith targets loaded
   const semH = pairs.semantic.hadith_top50 || [];
   const lexH = pairs.lexical.hadith_top50 || [];
 
-  // load only the first chunk quickly, then lazy-load rest
+  // Quick-load a few hadith first
   const toLoad = [...new Set([...semH.slice(0,12), ...lexH.slice(0,12)].map(x=>x.id))];
   for(const hid of toLoad) await ensureHadithById(hid);
 
@@ -344,14 +345,12 @@ async function openDetail(ayahId){
   renderPairList(els.semHadith, semH, "hadith");
   renderPairList(els.lexHadith, lexH, "hadith");
 
-  // Lazy load remaining hadith in background (still synchronous in JS, but chunked)
-  // Keeps UI responsive.
+  // Lazy load rest
   setTimeout(async ()=>{
     const allH = [...new Set([...semH, ...lexH].map(x=>x.id))];
     for(let i=0;i<allH.length;i++){
       await ensureHadithById(allH[i]);
       if(i % 25 === 0){
-        // refresh lists occasionally to fill in text
         renderPairList(els.semHadith, semH, "hadith");
         renderPairList(els.lexHadith, lexH, "hadith");
         await new Promise(r=>setTimeout(r, 10));
