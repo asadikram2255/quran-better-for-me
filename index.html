@@ -2,81 +2,211 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quran Better For Me</title>
   <link rel="stylesheet" href="assets/styles.css" />
+
+  <!-- Layout overrides (no JS changes needed) -->
+  <style>
+    /* Wider app + better wide-screen layout */
+    .app{
+      max-width: 1800px !important;
+      width: min(98vw, 1800px) !important;
+      margin: 0 auto;
+    }
+
+    /* Make the whole page behave like an app with fixed header/search and scrollable panels */
+    body{ height: 100vh; overflow: hidden; }
+    .app{ height: 100vh; display: flex; flex-direction: column; }
+
+    /* Sticky search row at top */
+    .stickyTop{
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    /* Reduce wasted vertical space */
+    .header{ padding-bottom: 10px; }
+    .card{ margin-bottom: 12px; }
+
+    /* Main area takes the remaining height */
+    .results{
+      flex: 1;
+      min-height: 0; /* critical for nested scrolling */
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Wider gap and better column ratio */
+    .layout{
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 42% 58%;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    /* Panels occupy full height, internal scroll areas handle overflow */
+    .panel{
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Sticky panel headers */
+    .stickyHead{
+      position: sticky;
+      top: 0; /* relative to its scroll container (scrollBody/detailScroll below) */
+      z-index: 10;
+    }
+
+    /* Left scroll container */
+    .scrollBody{
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    /* Right detail area: pairs should dominate and scroll */
+    .detail{
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .detailScroll{
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    /* Two columns inside pairs, keep readable width */
+    .twoCol{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    /* Each pair list column scrolls together inside detailScroll (not individually) */
+    .subpanel{
+      min-height: 0;
+    }
+
+    /* Search list items: improve readability */
+    .list .item{
+      padding: 12px 12px;
+    }
+
+    /* Make Arabic blocks breathe a little */
+    .txt[dir="rtl"], .pairBody [dir="rtl"]{
+      line-height: 1.9;
+    }
+
+    /* Tabs moved to header should not wrap too early */
+    .tabs{ white-space: nowrap; }
+
+    /* Hide the selected ayah preview nodes completely (kept for JS compatibility) */
+    .hiddenCompat{ display: none !important; }
+
+    /* Responsive fallback */
+    @media (max-width: 1100px){
+      body{ overflow: auto; height: auto; }
+      .app{ height: auto; }
+      .layout{ grid-template-columns: 1fr; }
+      .twoCol{ grid-template-columns: 1fr; }
+      .stickyTop{ position: static; }
+    }
+  </style>
 </head>
+
 <body>
   <div class="app">
-    <header class="header">
-      <div class="title">
+    <!-- Header -->
+    <div class="header">
+      <div>
         <div class="h1">Quran Better For Me</div>
-        <div class="sub">A Quran & Hadith semantic + lexical understanding system (static GitHub Pages)</div>
+        <div class="sub">A Quran &amp; Hadith semantic + lexical understanding system (static GitHub Pages)</div>
       </div>
-      <div class="status">
-        <span id="statusBadge" class="badge warn">Loading manifest…</span>
-      </div>
-    </header>
+      <div id="statusBadge" class="badge warn">Loading…</div>
+    </div>
 
-    <section class="search stickyTop">
-      <div class="card">
-        <div class="grid3">
-          <div>
-            <label>English keyword (fuzzy)</label>
-            <input id="enQuery" placeholder="e.g. mercy, patience, forgive…" />
-          </div>
-
-          <div>
-            <label>Arabic keyword</label>
-            <input id="arQuery" placeholder="مثال: رحمة، صبر، غفر…" dir="rtl" />
-          </div>
-
-          <div>
-            <label>Ayah ID</label>
-            <input id="idQuery" placeholder="e.g. 2:177" />
-          </div>
+    <!-- Search row: aligned at top, full width -->
+    <div class="card stickyTop">
+      <div class="grid3">
+        <div>
+          <label for="enQuery">English keyword (fuzzy)</label>
+          <input id="enQuery" type="text" placeholder="e.g. justice" autocomplete="off" />
         </div>
-
-        <div class="actions">
-          <button id="searchBtn" class="btn">Search</button>
-          <button id="clearBtn" class="btn ghost">Clear</button>
-          <div class="hint">Tip: use ONE input at a time (English OR Arabic OR Ayah ID)</div>
+        <div>
+          <label for="arQuery">Arabic keyword</label>
+          <input id="arQuery" type="text" placeholder="مثال: عدل" autocomplete="off" dir="rtl" />
+        </div>
+        <div>
+          <label for="idQuery">Ayah ID</label>
+          <input id="idQuery" type="text" placeholder="e.g. 2:177" autocomplete="off" />
         </div>
       </div>
-    </section>
 
-    <section class="results">
+      <div class="actions">
+        <button id="searchBtn" class="btn">Search</button>
+        <button id="clearBtn" class="btn ghost">Clear</button>
+        <div class="hint">Tip: use ONE input at a time (English OR Arabic OR Ayah ID)</div>
+      </div>
+    </div>
+
+    <!-- Main layout -->
+    <div class="results">
       <div class="layout">
-        <!-- LEFT: Search results -->
+        <!-- Left panel: Search Results -->
         <div class="panel">
           <div class="panelTitle stickyHead">Search Results</div>
-          <div id="resultsList" class="list scrollBody empty">No results yet.</div>
+          <div class="scrollBody">
+            <div id="resultsList" class="list empty">Search results will appear here.</div>
+          </div>
         </div>
 
-        <!-- RIGHT: Details -->
+        <!-- Right panel: Pairs (no selected ayah preview here) -->
         <div class="panel">
-          <div class="panelTitle stickyHead">Details</div>
+          <!-- Header with tabs -->
+          <div class="panelTitle stickyHead" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div>Pairs</div>
+              <div class="chip" style="opacity:.9;">Quran Top 20 + Hadith Top 50</div>
+            </div>
+            <div class="tabs" style="margin:0;">
+              <button class="tab active" data-tab="semantic">Semantic</button>
+              <button class="tab" data-tab="lexical">Lexical</button>
+            </div>
+          </div>
 
-          <div id="detailEmpty" class="empty">Select an ayah to view semantic + lexical pairs.</div>
-
-          <div id="detailView" class="detail hidden">
-            <!-- Sticky selected ayah -->
-            <div class="ayahBox stickyAyah">
-              <div class="ayahArabic" id="dArabic" dir="rtl"></div>
-              <div class="ayahEnglish" id="dEnglish"></div>
-              <div class="metaRow">
-                <div class="chip" id="dAyahId"></div>
-              </div>
-
-              <div class="tabs">
-                <button class="tab active" data-tab="semantic">Semantic</button>
-                <button class="tab" data-tab="lexical">Lexical</button>
+          <!-- Empty state -->
+          <div id="detailEmpty" class="detail">
+            <div class="ayahBox">
+              <div style="color:var(--muted);line-height:1.6;">
+                Select an ayah from <b>Search Results</b> to load Quran + Hadith pairings here.
               </div>
             </div>
+          </div>
 
-            <!-- Scrollable results area -->
+          <!-- Detail view -->
+          <div id="detailView" class="detail hidden">
+            <!-- Keep these for JS compatibility; hidden by design -->
+            <div class="hiddenCompat">
+              <div id="dAyahId"></div>
+              <div id="dArabic"></div>
+              <div id="dEnglish"></div>
+            </div>
+
+            <!-- Scrollable pairs -->
             <div class="detailScroll">
-              <div class="tabBody" id="tabSemantic">
+              <!-- Semantic tab -->
+              <div id="tabSemantic">
                 <div class="twoCol">
                   <div class="subpanel">
                     <div class="subTitle">Quran (Top 20)</div>
@@ -89,7 +219,8 @@
                 </div>
               </div>
 
-              <div class="tabBody hidden" id="tabLexical">
+              <!-- Lexical tab -->
+              <div id="tabLexical" class="hidden">
                 <div class="twoCol">
                   <div class="subpanel">
                     <div class="subTitle">Quran (Top 20)</div>
@@ -104,13 +235,14 @@
             </div>
             <!-- /detailScroll -->
           </div>
+          <!-- /detailView -->
         </div>
       </div>
-    </section>
+    </div>
 
-    <footer class="footer">
-      <div>Arabic embeddings + tokens only. English used for translation + English fuzzy search.</div>
-    </footer>
+    <div class="footer">
+      Arabic embeddings + tokens only. English used for translation + English fuzzy search.
+    </div>
   </div>
 
   <script src="assets/app.js"></script>
