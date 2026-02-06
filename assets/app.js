@@ -19,7 +19,11 @@ const state = {
   // quick lookup caches
   quranById: new Map(),       // ayah_id -> record
   pairsByAyah: new Map(),     // ayah_id -> pair record
-  hadithById: new Map()       // hadith_id -> record (filled lazily)
+  hadithById: new Map(),      // hadith_id -> record (filled lazily)
+
+  // UI state
+  selectedAyahId: null,
+  lastResults: []
 };
 
 const els = {
@@ -221,7 +225,9 @@ async function searchByEnglishFuzzy(q){
 
 // ---------- Rendering ----------
 function renderResults(list){
+  state.lastResults = list || [];
   els.resultsList.innerHTML = "";
+
   if(!list.length){
     els.resultsList.classList.add("empty");
     els.resultsList.textContent = "No results found.";
@@ -231,7 +237,7 @@ function renderResults(list){
 
   for(const rec of list.slice(0, 60)){
     const div = document.createElement("div");
-    div.className = "item";
+    div.className = "item" + (state.selectedAyahId === rec.ayah_id ? " selected" : "");
     div.innerHTML = `
       <div class="id">${rec.ayah_id}</div>
       <div>
@@ -282,7 +288,7 @@ function renderPairList(container, items, kind){
       const h = state.hadithById.get(it.id);
       if(h){
         const ar = h.arabic || "";
-        const en = h.english || ""; // ✅ shows under Arabic when present
+        const en = h.english || "";
         body = `<div dir="rtl">${ar}</div>`;
         if(en) extra = `<div class="small">${en}</div>`;
         else extra = `<div class="small">${h.book || ""} — ${h.reference || ""}</div>`;
@@ -311,6 +317,10 @@ function renderPairList(container, items, kind){
 }
 
 async function openDetail(ayahId){
+  // ✅ Only “selection UI”: highlight in Search Results (no preview pane shown)
+  state.selectedAyahId = ayahId;
+  renderResults(state.lastResults);
+
   const surah = surahFromAyahId(ayahId);
   await ensureSurahLoaded(surah);
 
@@ -321,6 +331,7 @@ async function openDetail(ayahId){
   els.detailEmpty.classList.add("hidden");
   els.detailView.classList.remove("hidden");
 
+  // Keep compatibility fields updated (but they’re hidden in HTML)
   els.dArabic.textContent = rec.arabic;
   els.dEnglish.textContent = rec.english;
   els.dAyahId.textContent = rec.ayah_id;
@@ -389,6 +400,9 @@ els.searchBtn.onclick = async () => {
   const ar = els.arQuery.value.trim();
   const id = els.idQuery.value.trim();
 
+  // New search resets selection highlight
+  state.selectedAyahId = null;
+
   els.detailView.classList.add("hidden");
   els.detailEmpty.classList.remove("hidden");
 
@@ -418,6 +432,10 @@ els.clearBtn.onclick = () => {
   els.enQuery.value = "";
   els.arQuery.value = "";
   els.idQuery.value = "";
+
+  state.selectedAyahId = null;
+  state.lastResults = [];
+
   renderResults([]);
   els.detailView.classList.add("hidden");
   els.detailEmpty.classList.remove("hidden");

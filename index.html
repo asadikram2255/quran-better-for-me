@@ -6,41 +6,44 @@
   <title>Quran Better For Me</title>
   <link rel="stylesheet" href="assets/styles.css" />
 
-  <!-- Layout overrides (no JS changes needed) -->
+  <!-- Layout + behavior fixes (kept here so you don’t need to touch styles.css) -->
   <style>
-    /* Wider app + better wide-screen layout */
+    /* Make the app wide and readable */
     .app{
       max-width: 1800px !important;
       width: min(98vw, 1800px) !important;
-      margin: 0 auto;
+      margin: 0 auto !important;
     }
 
-    /* Make the whole page behave like an app with fixed header/search and scrollable panels */
-    body{ height: 100vh; overflow: hidden; }
-    .app{ height: 100vh; display: flex; flex-direction: column; }
+    /* Turn the page into a fixed-height "app" so panels scroll instead of the whole page */
+    html, body { height: 100%; }
+    body { overflow: hidden; }
 
-    /* Sticky search row at top */
-    .stickyTop{
+    .app{
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header + search should stay visible */
+    .header { flex: 0 0 auto; }
+    .card.stickyTop{
       position: sticky;
       top: 0;
       z-index: 50;
     }
 
-    /* Reduce wasted vertical space */
-    .header{ padding-bottom: 10px; }
-    .card{ margin-bottom: 12px; }
-
-    /* Main area takes the remaining height */
+    /* Main results area should take remaining height */
     .results{
-      flex: 1;
+      flex: 1 1 auto;
       min-height: 0; /* critical for nested scrolling */
       display: flex;
       flex-direction: column;
     }
 
-    /* Wider gap and better column ratio */
+    /* Two main columns */
     .layout{
-      flex: 1;
+      flex: 1 1 auto;
       min-height: 0;
       display: grid;
       grid-template-columns: 42% 58%;
@@ -48,44 +51,43 @@
       align-items: stretch;
     }
 
-    /* Panels occupy full height, internal scroll areas handle overflow */
+    /* Each panel is a column with internal scrolling */
     .panel{
       min-height: 0;
       display: flex;
       flex-direction: column;
     }
 
-    /* Sticky panel headers */
-    .stickyHead{
+    /* Panel headers always visible */
+    .panelTitle.stickyHead{
       position: sticky;
-      top: 0; /* relative to its scroll container (scrollBody/detailScroll below) */
+      top: 0;
       z-index: 10;
     }
 
-    /* Left scroll container */
+    /* Left: Search Results scroll */
     .scrollBody{
-      flex: 1;
+      flex: 1 1 auto;
       min-height: 0;
       overflow: auto;
       padding-right: 4px;
     }
 
-    /* Right detail area: pairs should dominate and scroll */
+    /* Right: Pairs scroll */
     .detail{
-      flex: 1;
+      flex: 1 1 auto;
       min-height: 0;
       display: flex;
       flex-direction: column;
     }
-
     .detailScroll{
-      flex: 1;
+      flex: 1 1 auto;
       min-height: 0;
       overflow: auto;
       padding-right: 4px;
     }
 
-    /* Two columns inside pairs, keep readable width */
+    /* Inside pairs: Quran + Hadith side-by-side */
     .twoCol{
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -93,34 +95,28 @@
       align-items: start;
     }
 
-    /* Each pair list column scrolls together inside detailScroll (not individually) */
-    .subpanel{
-      min-height: 0;
+    /* Selected ayah highlight in Search Results ONLY */
+    .list .item.selected{
+      outline: 2px solid rgba(80, 220, 255, 0.35);
+      background: rgba(80, 220, 255, 0.08);
+      border-radius: 12px;
     }
 
-    /* Search list items: improve readability */
-    .list .item{
-      padding: 12px 12px;
-    }
-
-    /* Make Arabic blocks breathe a little */
-    .txt[dir="rtl"], .pairBody [dir="rtl"]{
-      line-height: 1.9;
-    }
-
-    /* Tabs moved to header should not wrap too early */
+    /* Slight readability improvements */
+    .list .item{ padding: 12px 12px; }
+    .txt[dir="rtl"], .pairBody [dir="rtl"]{ line-height: 1.9; }
     .tabs{ white-space: nowrap; }
 
-    /* Hide the selected ayah preview nodes completely (kept for JS compatibility) */
+    /* Keep JS compatibility nodes fully hidden */
     .hiddenCompat{ display: none !important; }
 
-    /* Responsive fallback */
+    /* Mobile fallback */
     @media (max-width: 1100px){
-      body{ overflow: auto; height: auto; }
+      body{ overflow: auto; }
       .app{ height: auto; }
       .layout{ grid-template-columns: 1fr; }
       .twoCol{ grid-template-columns: 1fr; }
-      .stickyTop{ position: static; }
+      .card.stickyTop{ position: static; }
     }
   </style>
 </head>
@@ -136,7 +132,7 @@
       <div id="statusBadge" class="badge warn">Loading…</div>
     </div>
 
-    <!-- Search row: aligned at top, full width -->
+    <!-- Search row -->
     <div class="card stickyTop">
       <div class="grid3">
         <div>
@@ -163,7 +159,8 @@
     <!-- Main layout -->
     <div class="results">
       <div class="layout">
-        <!-- Left panel: Search Results -->
+
+        <!-- Left panel -->
         <div class="panel">
           <div class="panelTitle stickyHead">Search Results</div>
           <div class="scrollBody">
@@ -171,9 +168,8 @@
           </div>
         </div>
 
-        <!-- Right panel: Pairs (no selected ayah preview here) -->
+        <!-- Right panel -->
         <div class="panel">
-          <!-- Header with tabs -->
           <div class="panelTitle stickyHead" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <div>Pairs</div>
@@ -185,7 +181,6 @@
             </div>
           </div>
 
-          <!-- Empty state -->
           <div id="detailEmpty" class="detail">
             <div class="ayahBox">
               <div style="color:var(--muted);line-height:1.6;">
@@ -194,18 +189,16 @@
             </div>
           </div>
 
-          <!-- Detail view -->
+          <!-- Detail view: NO selected ayah preview shown -->
           <div id="detailView" class="detail hidden">
-            <!-- Keep these for JS compatibility; hidden by design -->
+            <!-- Keep for JS compatibility (but fully hidden) -->
             <div class="hiddenCompat">
               <div id="dAyahId"></div>
               <div id="dArabic"></div>
               <div id="dEnglish"></div>
             </div>
 
-            <!-- Scrollable pairs -->
             <div class="detailScroll">
-              <!-- Semantic tab -->
               <div id="tabSemantic">
                 <div class="twoCol">
                   <div class="subpanel">
@@ -219,7 +212,6 @@
                 </div>
               </div>
 
-              <!-- Lexical tab -->
               <div id="tabLexical" class="hidden">
                 <div class="twoCol">
                   <div class="subpanel">
@@ -235,8 +227,8 @@
             </div>
             <!-- /detailScroll -->
           </div>
-          <!-- /detailView -->
         </div>
+
       </div>
     </div>
 
