@@ -469,8 +469,10 @@ for start in range(0, n, HADITH_SHARD_SIZE):
             "serial": int(row["serial"]),
             "book": safe_str(row["book"]),
             "reference": safe_str(row["reference"]),
-            "arabic": safe_str(row["arabic_text"])
+            "arabic": safe_str(row["arabic_text"]),
+            "english": safe_str(row["english_text"])   # <-- ADD THIS
         })
+
 
     write_json(os.path.join(OUT_HADITH_TEXT_DIR, fn), out)
     shard_map_hadith.append({"start": serial_start, "end": serial_end, "file": f"hadith_text/{fn}"})
